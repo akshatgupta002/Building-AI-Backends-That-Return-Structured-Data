@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Akshat Gupta · AI Backends That Return Structured Data</title>
+<meta name="description" content="Engineering walkthrough: document extraction with FastAPI, multimodal AI and Pydantic.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+:root{--bg:#0a0b14;--p:#11131f;--p2:#171a2a;--ln:#252940;--fg:#eceef8;--mut:#8d93b0;--cy:#58d4f0;--vi:#a78bfa;--ok:#6ee7b7;--bad:#fb7185;--warn:#fbbf24;
+--h:"Space Grotesk",system-ui,sans-serif;--s:"IBM Plex Sans",system-ui,sans-serif;--m:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 var(--s);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}:focus-visible{outline:2px solid var(--cy);outline-offset:3px;border-radius:4px}
+.w{max-width:1160px;margin:0 auto;padding:0 24px}.view{display:none}.view.on{display:block}
+#prog{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--cy),var(--vi));z-index:50}
+header{position:sticky;top:0;z-index:20;background:rgba(10,11,20,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--ln)}
+nav{display:flex;justify-content:space-between;align-items:center;height:58px;font-size:14px}nav b{font:600 16px var(--h)}nav div{display:flex;gap:22px;color:var(--mut)}nav div a:hover{color:var(--fg)}
+.btn{display:inline-block;padding:11px 20px;border-radius:8px;font-weight:500;font-size:15px;border:1px solid var(--ln);background:none;color:var(--fg);cursor:pointer;font-family:var(--s);transition:border-color .2s}
+.btn:hover{border-color:var(--cy)}.btn.p{background:linear-gradient(135deg,var(--cy),var(--vi));color:#08101c;border:0}
+.cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.cta .t{color:var(--mut);border-bottom:1px solid var(--ln);margin-left:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}.chips span{font:12px var(--m);border:1px solid var(--ln);border-radius:99px;padding:3px 12px;color:var(--mut)}
+.hero{padding:76px 0 40px;max-width:820px}
+h1{font:700 clamp(36px,5.4vw,64px)/1.06 var(--h);letter-spacing:-.035em;margin:22px 0 18px}
+.sub{color:var(--mut);font-size:19px;margin:0 0 28px;max-width:640px}
+/* hero pipeline */
+.pipe{border:1px solid var(--ln);border-radius:16px;background:var(--p);padding:26px 22px;margin:34px 0 0;overflow-x:auto}
+.pipe .tr{display:flex;align-items:center;min-width:760px}
+.pn{flex:1;text-align:center;border:1px solid var(--ln);border-radius:10px;padding:12px 6px;font:500 12.5px var(--m);background:var(--p2);position:relative;cursor:default}
+.pn:hover,.pn:focus-visible,.pn.act{border-color:var(--cy)}
+.pn.hl{border-color:var(--vi);box-shadow:0 0 0 3px rgba(167,139,250,.15)}
+.ln{flex:0 0 26px;height:2px;background:repeating-linear-gradient(90deg,var(--cy) 0 5px,transparent 5px 10px);background-size:20px 2px;animation:mv 1s linear infinite}
+@keyframes mv{to{background-position:20px 0}}
+.info{margin-top:18px;border-top:1px solid var(--ln);padding-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;font-size:14px;min-height:92px}
+.info h5,.arch-i h5{margin:0 0 4px;font:500 12px var(--m);color:var(--mut)}.info p{margin:0;color:#c9cde4}.info .f p{color:var(--bad)}
+section{padding:72px 0;border-top:1px solid var(--ln);margin-top:56px}
+h2{font:600 31px/1.15 var(--h);letter-spacing:-.02em;margin:0 0 10px}.lead{color:var(--mut);max-width:640px;margin:0 0 32px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:stretch}
+.doc{background:#f1efe8;color:#23232b;border-radius:6px;padding:26px 28px;font:14px/1.9 var(--m);position:relative;overflow:hidden}
+.doc small{display:block;font:11px var(--m);color:#6b6b78;margin-bottom:10px}
+.doc:after{content:"";position:absolute;left:0;right:0;height:2px;background:var(--cy);top:-4px;box-shadow:0 0 14px var(--cy);opacity:0}
+.doc.scan:after{animation:sc 1.6s ease-in-out;opacity:1}@keyframes sc{from{top:0}to{top:100%}}
+.jsn{background:var(--p);border:1px solid var(--ln);border-radius:6px;padding:18px 0;font:13.5px/1.7 var(--m);min-height:250px}
+.jsn i{display:block;padding:0 20px;white-space:pre;font-style:normal;opacity:0;transform:translateX(-6px);transition:opacity .3s,transform .3s}.jsn i.on{opacity:1;transform:none}
+.tag{display:inline-block;font:500 12px var(--m);color:var(--warn);border:1px dashed var(--warn);border-radius:6px;padding:2px 10px;margin-top:14px}
+.chain{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font:12.5px var(--m);margin:0 0 26px}.chain span{border:1px solid var(--ln);border-radius:8px;padding:8px 14px;background:var(--p)}.chain .v{border-color:var(--vi);color:var(--vi)}.chain em{color:var(--cy);font-style:normal}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}
+.card{border:1px solid var(--ln);border-radius:12px;background:var(--p);padding:22px}
+.feat{display:grid;grid-template-columns:1.4fr 1fr;gap:0;border:1px solid var(--ln);border-radius:16px;overflow:hidden;background:var(--p)}.feat>div{padding:32px}
+.feat h3{font:600 27px/1.2 var(--h);margin:8px 0 10px}.feat p{color:#b8bcd4}.meta{font:13px var(--m);color:var(--mut);display:flex;gap:18px;margin:14px 0}
+.feat .side{background:linear-gradient(160deg,#141734,#0f1020);border-left:1px solid var(--ln);font:12.5px/2 var(--m);color:var(--mut)}.side b{color:var(--cy);font-weight:500}
+.honest{display:grid;grid-template-columns:1fr 1fr;gap:16px}.honest .card h4{margin:0 0 8px;font:600 17px var(--h)}.honest p{margin:0;color:#b8bcd4;font-size:15px}
+.honest .a{border-color:rgba(251,191,36,.45)}.honest .b{border-color:rgba(110,231,183,.4)}
+footer{border-top:1px solid var(--ln);padding:28px 0;color:var(--mut);font-size:14px}
+/* code */
+.code{border:1px solid var(--ln);border-radius:10px;background:#080910;margin:20px 0;overflow:hidden}
+.bar{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:var(--p2);border-bottom:1px solid var(--ln);font:12px var(--m);color:var(--mut)}
+.bar button{font:12px var(--m);background:none;border:1px solid var(--ln);color:var(--mut);border-radius:5px;padding:2px 9px;cursor:pointer}.bar button:hover{color:var(--fg);border-color:var(--cy)}
+.bar u{text-decoration:none;color:var(--warn);margin-left:10px}
+pre{margin:0;padding:14px 0;overflow-x:auto;font:13.5px/1.7 var(--m);color:#d6daee;counter-reset:l}
+pre .l{display:block;white-space:pre;padding-right:16px}.code.n pre .l:before{counter-increment:l;content:counter(l);display:inline-block;width:40px;padding-right:14px;text-align:right;color:#4a4f6b;user-select:none}.code:not(.n) pre .l{padding-left:16px}
+.k{color:#c4a7ff}.s{color:#9be9c0}.c{color:#6a708f;font-style:italic}.d{color:#f9a8d4}.n{color:#7dd3fc}.pm{color:var(--ok);user-select:none}
+/* article */
+.art{display:grid;grid-template-columns:minmax(0,740px) 230px;gap:60px;padding:48px 0 90px;justify-content:center}
+.toc{position:sticky;top:86px;align-self:start;font-size:13.5px;max-height:calc(100vh - 110px);overflow:auto}.toc b{display:block;font:500 12px var(--m);color:var(--mut);margin-bottom:8px}
+.toc a{display:block;padding:3px 0 3px 12px;border-left:2px solid var(--ln);color:var(--mut)}.toc a.on{color:var(--cy);border-color:var(--cy)}
+article h1{font-size:clamp(30px,4vw,44px)}article .st{font-size:19px;color:var(--mut);margin:0 0 14px}
+article h2{font-size:25px;margin:54px 0 12px}article p,article li{color:#c9cde4;font-size:17px;line-height:1.75}li{margin-bottom:6px}
+article code:not(pre code){font:.88em var(--m);background:var(--p2);border:1px solid var(--ln);border-radius:5px;padding:1px 6px}
+.byl{font:13px var(--m);color:var(--mut);display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 14px}
+.co{border-left:3px solid var(--cy);background:var(--p);padding:12px 18px;border-radius:0 8px 8px 0;margin:22px 0}.co p{margin:0;font-size:15.5px}.co.w2{border-color:var(--warn)}.co.d2{border-color:var(--bad)}.co strong{font:600 13px var(--m);display:block;margin-bottom:2px}
+.back{color:var(--mut);font-size:14px}
+.arch{display:flex;flex-direction:column;align-items:center;margin:24px 0;gap:0}
+.arch .nd{width:230px;text-align:center;border:1px solid var(--ln);border-radius:9px;padding:9px;font:500 13px var(--m);background:var(--p2);cursor:default;transition:border-color .2s}
+.arch .nd:hover,.arch .nd:focus-visible,.arch .nd.act{border-color:var(--vi)}.arch .ar{color:var(--cy);height:20px;line-height:20px;animation:nd 1.5s ease-in-out infinite}@keyframes nd{50%{transform:translateY(3px);opacity:.5}}
+.arch-i{border:1px solid var(--ln);border-radius:10px;padding:14px 18px;background:var(--p);margin-top:10px;width:100%;font-size:15px;min-height:76px}.arch-i p{margin:0;color:#c9cde4}
+table{border-collapse:collapse;width:100%;font-size:15px;margin:18px 0}th,td{border:1px solid var(--ln);padding:8px 12px;text-align:left;color:#c9cde4;vertical-align:top}th{background:var(--p2)}
+@media(max-width:880px){.two,.cmp,.feat,.honest,.art,.info{grid-template-columns:1fr}.toc{display:none}.feat .side{border-left:0;border-top:1px solid var(--ln)}nav div a.x{display:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style></head><body>
+<div id="prog"></div>
+<header><div class="w"><nav><a href="#/"><b>Akshat Gupta</b></a><div><a class="x" href="#/" data-s="pipeline">Pipeline</a><a class="x" href="#/" data-s="px">Pixels to JSON</a><a class="x" href="#/" data-s="val">Validation</a><a href="#/" data-s="contact">Contact</a></div></nav></div></header>
+
+<main id="home" class="view on"><div class="w">
+<div class="hero">
+ <div class="chips"><span>AI Engineering</span><span>FastAPI</span><span>Python</span><span>Pydantic</span><span>Multimodal AI</span></div>
+ <h1>Building AI Backends That Return Structured Data</h1>
+ <p class="sub">An engineering walkthrough of document extraction with FastAPI, multimodal AI, Meta Model API (Muse Spark 1.3) and Pydantic.</p>
+ <div class="cta"><a class="btn p" href="#/article">Read the Article</a><a class="btn" data-gh href="https://github.com/akshatgupta002" target="_blank" rel="noopener">View Code</a><a class="t" href="#/" data-s="contact">Contact Me</a></div>
+</div>
+<div id="pipeline" class="pipe"><div class="tr" id="tr"></div>
+ <div class="info" id="info"></div></div>
+
+<section id="px"><h2>From pixels to JSON</h2><p class="lead">The core job of the system: turn what a person can read into what an API can use.</p>
+ <div class="two">
+  <div><div class="doc" id="doc"><small>DOCUMENT PREVIEW (illustrative)</small>Patient: Example Patient<br>Medicine: Example Medicine<br>Dosage: 1-0-1</div><span class="tag">Illustrative example · not a real patient record</span><div style="margin-top:14px"><button class="btn" id="run">Run extraction</button></div></div>
+  <div class="jsn" id="js"></div>
+ </div></section>
+
+<section id="val"><h2>AI output is not automatically reliable</h2>
+ <p class="lead">Models can return extra fields, missing values, wrong types or malformed structures. Pydantic is the validation boundary between AI output and your application logic.</p>
+ <div class="chain"><span>AI output</span><em>→</em><span>Raw JSON</span><em>→</em><span class="v">Pydantic validation</span><em>→</em><span>Validated schema</span><em>→</em><span>Application logic</span></div>
+ <div class="code"><div class="bar"><span>python · schema.py</span><button>Copy</button></div><pre data-l="py">from pydantic import BaseModel
+from typing import Optional
+
+
+class Medicine(BaseModel):
+    name: str
+    dosage: Optional[str] = None
+    schedule: Optional[str] = None</pre></div>
+ <div class="cmp"><div class="card"><h4 style="margin:0 0 8px;font:600 15px var(--h);color:var(--bad)">Unvalidated</h4><p style="margin:0;color:#b8bcd4;font-size:15px">A missing <code>name</code> or a string where a list was expected travels straight into your database or client response.</p></div>
+ <div class="card"><h4 style="margin:0 0 8px;font:600 15px var(--h);color:var(--ok)">Validated</h4><p style="margin:0;color:#b8bcd4;font-size:15px">Bad shapes raise a <code>ValidationError</code> you can handle: reject, retry, or flag for review.</p></div></div>
+</section>
+
+<section id="read"><h2>Featured article</h2><p class="lead">A practical, implementation-focused walkthrough.</p>
+ <div class="feat"><div><div class="chips"><span>FastAPI</span><span>Multimodal AI</span><span>Pydantic</span></div>
+  <h3>Building an AI-Powered Document Extraction API with FastAPI and Muse Spark 1.3</h3>
+  <p>Designing a reliable AI backend that converts document images into structured, validated data using FastAPI, multimodal AI, and Pydantic.</p>
+  <div class="meta"><span>18 sections</span><span>Intermediate</span></div>
+  <div class="cta"><a class="btn p" href="#/article">Read the Article</a><a class="btn" data-gh href="https://github.com/akshatgupta002" target="_blank" rel="noopener">View Code</a></div></div>
+  <div class="side"><b>POST /extract</b><br>image → preprocess<br>→ model call<br>→ JSON parse<br>→ <b>Pydantic validate</b><br>→ store → response</div></div>
+</section>
+
+<section id="honest"><h2>What is example and what is experience</h2><p class="lead">Kept separate on purpose.</p>
+ <div class="honest"><div class="card a"><h4>Example implementation</h4><p>All code in the article is a teaching example. Meta Model API and Muse model access can change; verify the current API documentation, model ID and input format before running the provider adapter. No benchmarks, costs or accuracy figures are claimed.</p></div>
+ <div class="card b"><h4>Akshat's project experience</h4><p>This portfolio separates the teaching implementation from personal project claims. See my GitHub for verified project repositories and implementation details.</p></div></div>
+</section>
+
+<section id="contact"><h2>Contact</h2><p class="lead">Open to technical writing, AI backend tutorials and junior backend roles.</p>
+ <div class="cta"><a class="btn p" data-mail href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=akshatgupta7505%40gmail.com" target="_blank" rel="noopener noreferrer" onclick="window.open('https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=akshatgupta7505%40gmail.com', '_blank', 'noopener'); return false;">Email me</a><a class="btn" data-gh href="https://github.com/akshatgupta002" target="_blank" rel="noopener">GitHub</a><a class="btn" data-li href="https://linkedin.com/in/akshat-gupta-79a91b304" target="_blank" rel="noopener">LinkedIn</a></div>
+ <p style="margin:18px 0 0;color:var(--mut);font-size:15px">Email: <a href="mailto:akshatgupta7505@gmail.com" style="color:inherit;border-bottom:1px solid currentColor">akshatgupta7505@gmail.com</a></p>
+ <div class="chips" style="margin-top:34px"><span>Python</span><span>FastAPI</span><span>AI / LLM APIs</span><span>Multimodal AI</span><span>Pydantic</span><span>REST APIs</span><span>PostgreSQL</span><span>Redis</span><span>OpenCV</span><span>Docker</span><span>Git</span></div>
+ <p style="color:var(--mut);font-size:14px;margin-top:24px">Akshat Gupta · Python Backend Developer | AI Engineer | Technical Writer · B.Tech CSE (Data Science), MIET · Expected 2027</p>
+</section>
+</div></main>
+
+<main id="article" class="view"><div class="w"><div class="art"><article id="body">
+<a class="back" href="#/">← Back to portfolio</a>
+<h1>Building an AI-Powered Document Extraction API with FastAPI and Muse Spark 1.3</h1>
+<p class="st">Designing a reliable AI backend that converts document images into structured, validated data using FastAPI, multimodal AI, and Pydantic.</p>
+<div class="byl"><span>Akshat Gupta</span><span>Updated October 2026</span><span>~15 min read</span><span>Intermediate</span></div>
+<div class="chips"><span>Python</span><span>FastAPI</span><span>Multimodal AI</span><span>Pydantic</span><span>Muse Spark</span></div>
+<div class="co w2"><p><strong>Example implementation</strong>This is a teaching example, not a report of a production system. The provider call is an example integration, not a claim that the entire sample application has been deployed or production-tested. See <a href="https://dev.meta.ai/docs/overview" target="_blank" rel="noopener noreferrer">Meta Model API documentation</a>. Check current model/API availability and data terms before use.</p></div>
+
+<h2 id="a1">1. Introduction</h2>
+<p>Most backends expect structured JSON. Many real inputs arrive as pictures: prescriptions, invoices, forms, reports. This article builds one narrow thing: a FastAPI endpoint that accepts a document image, asks a multimodal model to extract fields, validates the result, and only then returns it.</p>
+
+<h2 id="a2">2. The problem: unstructured documents</h2>
+<p>A document is readable by a person and opaque to an API. The pipeline we need is:</p>
+<div class="chain" style="margin:16px 0"><span>Document image</span><em>→</em><span>AI understanding</span><em>→</em><span>Structured extraction</span><em>→</em><span>Validation</span><em>→</em><span>Reliable response</span></div>
+<p>The last two steps matter most. A model can misread handwriting, invent a field that is not on the page, or return text that is not valid JSON. If the backend trusts that output blindly, bad data reaches your database and your clients, and it looks authoritative.</p>
+
+<h2 id="a3">3. What we are building</h2>
+<ul><li><code>POST /extract</code> accepts an image upload.</li><li>The image is normalized, then sent to a multimodal model with an extraction prompt.</li><li>The reply is parsed and validated against a Pydantic schema.</li><li>Valid data is saved to PostgreSQL and returned; invalid output returns a clear error.</li></ul>
+
+<h2 id="a4">4. System architecture</h2>
+<p>Hover or focus a node to see its responsibility.</p>
+<div class="arch" id="arch"></div>
+
+<h2 id="a5">5. Why FastAPI?</h2>
+<p>FastAPI gives typed request handling, file uploads, automatic OpenAPI docs and native async support, which suits an endpoint that spends most of its time waiting on a network call. It also uses Pydantic, so the same models validate requests, model output and responses.</p>
+
+<h2 id="a6">6. Preparing the document</h2>
+<p>Normalize before sending: fix phone-photo rotation, convert to RGB, and cap the size. This keeps requests predictable. (OpenCV is useful here for deskewing or contrast work; Pillow keeps this example short.)</p>
+<div class="code n"><div class="bar"><span>python · prepare.py<u>example</u></span><button>Copy</button></div><pre data-l="py">import io
+from PIL import Image, ImageOps
+
+
+def prepare_image(raw: bytes, max_side: int = 1600) -> bytes:
+    img = Image.open(io.BytesIO(raw))
+    img = ImageOps.exif_transpose(img).convert("RGB")
+    img.thumbnail((max_side, max_side))
+    out = io.BytesIO()
+    img.save(out, format="JPEG", quality=90)
+    return out.getvalue()</pre></div>
+
+<h2 id="a7">7. Sending multimodal input to the AI model</h2>
+<p>A multimodal request carries text instructions and the image together. Many providers accept images as base64 data URLs inside a message. Keep the prompt strict: name the fields, say what to do when a value is not visible, and ask for JSON only.</p>
+<div class="code n"><div class="bar"><span>python · prompt.py<u>example</u></span><button>Copy</button></div><pre data-l="py">PROMPT = """Extract data from this document image.
+Return ONLY a JSON object with this shape:
+{"patient": {"name": string|null},
+ "medicines": [{"name": string, "dosage": string|null,
+                "schedule": string|null}]}
+Use null for anything not clearly visible. Do not guess."""</pre></div>
+
+<h2 id="a8">8. Calling Meta Model API with Muse Spark</h2>
+<p>Meta provides developer access to Muse models through the Meta Model API. Muse Spark 1.3 is a current Muse model; model IDs, access permissions and request formats can change, so verify the current Meta documentation before running this adapter.</p>
+<div class="code n"><div class="bar"><span>python · muse_client.py</span><button>Copy</button></div><pre data-l="py">import base64
+import os
+import httpx
+
+# Meta Model API documents https://api.meta.ai/v1 and Muse Spark model IDs.
+MUSE_BASE_URL = "https://api.meta.ai/v1"
+MUSE_MODEL = os.getenv("MUSE_MODEL", "muse-spark-1.3")
+MUSE_API_KEY = os.environ["MODEL_API_KEY"]  # never commit this secret
+
+
+async def extract_text(image: bytes) -> str:
+    """Illustrative OpenAI-compatible Chat Completions adapter.
+
+    Confirm image-input support and your account's model access against the
+    current Meta API docs before relying on this in production.
+    """
+    b64 = base64.b64encode(image).decode("ascii")
+    body = {
+        "model": MUSE_MODEL,
+        "messages": [{"role": "user", "content": [
+            {"type": "text", "text": PROMPT},
+            {"type": "image_url",
+             "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+        ]}],
+    }
+    async with httpx.AsyncClient(timeout=60) as client:
+        response = await client.post(
+            f"{MUSE_BASE_URL}/chat/completions",
+            json=body,
+            headers={"Authorization": f"Bearer {MUSE_API_KEY}"},
+        )
+    response.raise_for_status()
+    payload = response.json()
+    return payload["choices"][0]["message"]["content"]</pre></div>
+<div class="co"><p><strong>Why a thin wrapper?</strong>Keeping all provider details in one function means a change of model or provider touches one file, and tests can replace it easily.</p></div>
+
+<h2 id="a9">9. Designing a structured output schema</h2>
+<p>Design the schema for honesty: fields the document may not contain are <code>Optional</code>, so "not visible" is representable instead of forcing a guess.</p>
+<div class="code n"><div class="bar"><span>python · schema.py<u>example</u></span><button>Copy</button></div><pre data-l="py">from typing import Optional
+from pydantic import BaseModel, Field
+
+
+class Patient(BaseModel):
+    name: Optional[str] = None
+
+
+class Medicine(BaseModel):
+    name: str = Field(min_length=1)
+    dosage: Optional[str] = None
+    schedule: Optional[str] = None
+
+
+class Extraction(BaseModel):
+    patient: Patient = Field(default_factory=Patient)
+    medicines: list[Medicine] = Field(default_factory=list)</pre></div>
+
+<h2 id="a10">10. Validating AI responses with Pydantic</h2>
+<p>Models sometimes wrap JSON in markdown fences or add commentary. Strip fences, parse, then validate. Any failure becomes one domain error.</p>
+<div class="code n"><div class="bar"><span>python · validate.py<u>example</u></span><button>Copy</button></div><pre data-l="py">import json
+from pydantic import ValidationError
+
+
+class BadModelOutput(Exception):
+    pass
+
+
+def parse_extraction(text: str) -> Extraction:
+    text = text.strip().removeprefix("```json").removesuffix("```").strip()
+    try:
+        return Extraction.model_validate(json.loads(text))
+    except (json.JSONDecodeError, ValidationError) as exc:
+        raise BadModelOutput(str(exc)) from exc</pre></div>
+
+<h2 id="a11">11. Handling missing or uncertain information</h2>
+<p>Three rules keep uncertainty honest: prefer <code>null</code> over guessing (in the prompt and the schema); never fill defaults that look like real data; and for high-stakes documents, treat output as a draft for human review rather than a final record. The model does not give a trustworthy confidence score by default, so do not display one unless you have measured it.</p>
+<div class="co w2"><p><strong>High-stakes domains</strong>For anything medical or financial, a person should confirm extracted values before they are acted on.</p></div>
+
+<h2 id="a12">12. Building the FastAPI endpoint</h2>
+<div class="code n"><div class="bar"><span>python · main.py<u>example</u></span><button>Copy</button></div><pre data-l="py">import httpx
+from fastapi import FastAPI, File, HTTPException, UploadFile
+
+app = FastAPI()
+ALLOWED = {"image/jpeg", "image/png"}
+MAX_BYTES = 8 * 1024 * 1024
+
+
+@app.post("/extract", response_model=Extraction)
+async def extract(file: UploadFile = File(...)):
+    if file.content_type not in ALLOWED:
+        raise HTTPException(415, "Upload a JPEG or PNG image")
+    raw = await file.read()
+    if len(raw) > MAX_BYTES:
+        raise HTTPException(413, "File too large")
+    try:
+        image = prepare_image(raw)
+        text = await extract_text(image)
+        result = parse_extraction(text)
+    except BadModelOutput:
+        raise HTTPException(422, "Model output failed validation")
+    except httpx.HTTPError:
+        raise HTTPException(502, "AI provider unavailable")
+    # save_to_postgres(result)  # persist after validation only
+    return result</pre></div>
+
+<h2 id="a13">13. Error handling</h2>
+<table><tr><th>Situation</th><th>Status</th><th>Why</th></tr>
+<tr><td>Wrong file type</td><td>415</td><td>Client can fix it</td></tr><tr><td>File too large</td><td>413</td><td>Client can fix it</td></tr>
+<tr><td>Model output invalid</td><td>422</td><td>Request understood, result unusable</td></tr><tr><td>Provider down or timeout</td><td>502 / 504</td><td>Upstream failure, safe to retry</td></tr></table>
+<p>Never return raw exception text or provider responses to clients; log them server-side.</p>
+
+<h2 id="a14">14. AI failure scenarios</h2>
+<ul><li><strong>Malformed JSON:</strong> caught by parsing, returns 422.</li><li><strong>Wrong types or missing required fields:</strong> caught by Pydantic.</li><li><strong>Plausible but wrong values:</strong> not catchable by a schema. Validation checks shape, not truth. Mitigate with field rules (regex for dates, ranges), review workflows, and an evaluation set of your own documents.</li><li><strong>Invented fields:</strong> ignored by default by Pydantic; use <code>extra="forbid"</code> if you want them to fail.</li><li><strong>Refusals or empty replies:</strong> treated as invalid output.</li></ul>
+
+<h2 id="a15">15. Security and privacy considerations</h2>
+<ul><li>Documents may contain personal data. Check the provider's data-retention and usage terms before sending real documents, and test with fake data.</li><li>Keep API keys in environment variables or a secrets manager.</li><li>Validate content type and size; consider verifying the file is a real image by opening it.</li><li>Treat text inside images as untrusted: a document can contain instructions aimed at the model (prompt injection), so never let model output trigger actions directly.</li><li>Avoid logging full documents or full extractions.</li></ul>
+
+<h2 id="a16">16. Testing the API</h2>
+<p>Replace the model call so tests are fast, free and deterministic.</p>
+<div class="code n"><div class="bar"><span>python · test_extract.py<u>example</u></span><button>Copy</button></div><pre data-l="py">from fastapi.testclient import TestClient
+import main
+
+client = TestClient(main.app)
+
+
+def fake(text):
+    async def _f(image): return text
+    return _f
+
+
+def test_valid(monkeypatch, tiny_png):
+    monkeypatch.setattr(main, "extract_text",
+        fake('{"medicines":[{"name":"Example Medicine"}]}'))
+    r = client.post("/extract", files={"file": ("a.png", tiny_png, "image/png")})
+    assert r.status_code == 200
+
+
+def test_invalid(monkeypatch, tiny_png):
+    monkeypatch.setattr(main, "extract_text", fake("not json"))
+    r = client.post("/extract", files={"file": ("a.png", tiny_png, "image/png")})
+    assert r.status_code == 422</pre></div>
+<div class="code term"><div class="bar"><span>terminal</span><button>Copy</button></div><pre data-l="sh">pip install fastapi "uvicorn[standard]" httpx pillow pydantic python-multipart pytest
+uvicorn main:app --reload
+pytest</pre></div>
+<p>Separately, build a small evaluation set of your own documents and measure extraction quality yourself. Do not rely on a model's marketing claims for accuracy.</p>
+
+<h2 id="a17">17. Production considerations</h2>
+<ul><li>Move slow extraction to a background job queue and return a job ID (see the first article in this collection).</li><li>Add timeouts, bounded retries with backoff, and rate limiting.</li><li>Store the original file reference, the validated result and the schema version.</li><li>Track validation-failure rate as a quality signal.</li><li>Check the provider's rate limits, pricing and data terms before committing.</li></ul>
+
+<h2 id="a18">18. Conclusion</h2>
+<p>The model reads the document; your backend decides what is allowed to leave the system. A strict prompt, an honest schema, a validation boundary and clear errors turn an unreliable step into a dependable endpoint. <a class="back" href="#/" style="color:var(--cy)">Back to portfolio →</a></p>
+</article><aside class="toc" id="toc"><b>Contents</b></aside></div></div></main>
+<footer><div class="w">© 2026 Akshat Gupta</div></footer>
+
+<script>
+var LINKS={github:"https://github.com/akshatgupta002",email:"akshatgupta7505@gmail.com",linkedin:"https://linkedin.com/in/akshat-gupta-79a91b304"};
+document.querySelectorAll("[data-gh]").forEach(a=>a.href=LINKS.github);
+document.querySelectorAll("[data-li]").forEach(a=>a.href=LINKS.linkedin);
+document.querySelectorAll("[data-mail]").forEach(a=>a.href="https://mail.google.com/mail/u/0/?view=cm&fs=1&to="+encodeURIComponent(LINKS.email));
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const RX=/(#.*$)|(f?"[^"\n]*"|'[^'\n]*')|\b(def|import|from|class|return|try|except|raise|async|await|if|with|as|for|in|None|True|False)\b|\b(\d+)\b/gm;
+function hl(t,l){const e=esc(t);if(l==="sh")return e.replace(/^(.*)$/gm,'<b class="pm">$ </b>$1');
+ return e.replace(RX,(m,c,s,k,n)=>c?`<span class="c">${m}</span>`:s?`<span class="s">${m}</span>`:k?`<span class="k">${m}</span>`:`<span class="n">${m}</span>`)}
+document.querySelectorAll("pre[data-l]").forEach(p=>{const r=p.textContent;p.dataset.raw=r;p.innerHTML=hl(r,p.dataset.l).split("\n").map(l=>'<span class="l">'+(l||" ")+"</span>").join("")});
+document.addEventListener("click", async e => {
+  const b = e.target.closest(".bar button");
+  if (!b) return;
+  const pre = b.closest(".code")?.querySelector("pre");
+  const raw = pre?.dataset.raw;
+  if (typeof raw !== "string") return;
+  const original = b.textContent;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(raw);
+    } else {
+      const field = document.createElement("textarea");
+      field.value = raw;
+      field.setAttribute("readonly", "");
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand("copy");
+      field.remove();
+      if (!copied) throw new Error("Clipboard unavailable");
+    }
+    b.textContent = "Copied";
+  } catch (err) {
+    b.textContent = "Copy failed";
+  }
+  setTimeout(() => { b.textContent = original || "Copy"; }, 1400);
+});
+
+/* hero pipeline */
+const NODES=[
+["Document","Hold the source image of the document.","Photo, scan or PDF page","Raw file bytes","Blurry, rotated or low-contrast image."],
+["Preprocessing","Normalize the image for the model.","Raw file bytes","Rotated, resized RGB image","Bad file type, corrupt or oversized upload."],
+["AI Model","Extract information from the document.","Image plus instructions","Text, ideally JSON","Incorrect or incomplete extraction."],
+["Structured Output","Parse the model's text into data.","Model text","Python dict","Invalid JSON, markdown wrappers, commentary."],
+["Pydantic Validation","Validate and normalize the AI response.","Parsed dict","Typed, validated object","Missing or incorrectly typed fields."],
+["API Response","Return trusted data to the client.","Validated object","JSON response or clear error","Leaking raw errors or unvalidated data."]];
+const tr=document.getElementById("tr"),info=document.getElementById("info");let cur=0,auto=true,timer;
+NODES.forEach((n,i)=>{if(i){const l=document.createElement("div");l.className="ln";tr.appendChild(l)}
+ const d=document.createElement("div");d.className="pn";d.tabIndex=0;d.textContent=n[0];tr.appendChild(d);
+ const go=()=>{auto=false;sel(i)};d.onmouseenter=go;d.onfocus=go});
+function sel(i){cur=i;const n=NODES[i];[...tr.querySelectorAll(".pn")].forEach((d,j)=>d.classList.toggle("act",j===i));
+ info.innerHTML=`<div><h5>Purpose</h5><p>${n[1]}</p></div><div><h5>Input</h5><p>${n[2]}</p></div><div><h5>Output</h5><p>${n[3]}</p></div><div class="f"><h5>Potential failure</h5><p>${n[4]}</p></div>`}
+sel(0);if(!matchMedia("(prefers-reduced-motion:reduce)").matches)timer=setInterval(()=>{if(auto)sel((cur+1)%6)},2600);
+
+/* pixels to json */
+const J=['{','  "patient": {','    "name": "Example Patient"','  },','  "medicines": [','    {','      "name": "Example Medicine",','      "schedule": "1-0-1"','    }','  ]','}'];
+const js=document.getElementById("js"),doc=document.getElementById("doc");
+js.innerHTML=J.map(l=>'<i>'+esc(l).replace(/("[^"]+")(:)/,'<span class="n">$1</span>$2').replace(/: ("[^"]+")/,': <span class="s">$1</span>')+'</i>').join("");
+function play(){doc.classList.remove("scan");void doc.offsetWidth;doc.classList.add("scan");const r=js.querySelectorAll("i");r.forEach(x=>x.classList.remove("on"));r.forEach((x,i)=>setTimeout(()=>x.classList.add("on"),500+i*140))}
+document.getElementById("run").onclick=play;
+new IntersectionObserver((e,o)=>{if(e[0].isIntersecting){play();o.disconnect()}},{threshold:.5}).observe(js);
+
+/* architecture */
+const AR=[["Client","Sends a document image and receives validated JSON or a clear error."],["FastAPI","Receives the upload, checks type and size, orchestrates the steps, maps errors to status codes."],["Preprocessing","Fixes rotation, converts format, limits size so model requests stay predictable."],["Muse Spark · Multimodal AI","Reads the image and returns extraction text. Treated as an untrusted external service."],["JSON Output","Raw text from the model, parsed into a Python object. May be malformed."],["Pydantic Validation","Enforces types and required fields. Nothing unvalidated passes this point."],["PostgreSQL","Stores validated results only, with a reference to the source file."],["API Response","Returns the validated result, or a safe error with no internal details."]];
+const ar=document.getElementById("arch");let h="";AR.forEach((n,i)=>{h+=(i?'<div class="ar">↓</div>':"")+`<div class="nd" tabindex="0" data-i="${i}">${n[0]}</div>`});
+ar.innerHTML=h+'<div class="arch-i" id="ai"><h5>Responsibility</h5><p>Hover or focus a node.</p></div>';
+ar.querySelectorAll(".nd").forEach(d=>{const f=()=>{ar.querySelectorAll(".nd").forEach(x=>x.classList.remove("act"));d.classList.add("act");document.getElementById("ai").innerHTML="<h5>"+AR[d.dataset.i][0]+"</h5><p>"+AR[d.dataset.i][1]+"</p>"};d.onmouseenter=f;d.onfocus=f});
+
+/* toc, progress */
+const toc=document.getElementById("toc"),hs=[...document.querySelectorAll("#body h2")];
+hs.forEach(x=>{const a=document.createElement("a");a.href="#"+x.id;a.textContent=x.textContent.replace(/^\d+\.\s*/,"");a.onclick=e=>{e.preventDefault();x.scrollIntoView({behavior:"smooth"})};toc.appendChild(a)});
+new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)toc.querySelectorAll("a").forEach(a=>a.classList.toggle("on",a.getAttribute("href")==="#"+e.target.id))}),{rootMargin:"-80px 0px -70% 0px"}).observe&&hs.forEach(x=>0);
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)toc.querySelectorAll("a").forEach(a=>a.classList.toggle("on",a.getAttribute("href")==="#"+e.target.id))}),{rootMargin:"-80px 0px -70% 0px"});hs.forEach(x=>io.observe(x));
+const pg=document.getElementById("prog");
+addEventListener("scroll",()=>{const a=document.getElementById("article").classList.contains("on");const b=document.getElementById("body");if(!a){pg.style.width=0;return}const r=b.getBoundingClientRect();pg.style.width=Math.max(0,Math.min(100,(-r.top/(r.height-innerHeight))*100))+"%"},{passive:true});
+
+/* router */
+let tg=null;function route(){const a=location.hash.startsWith("#/article");document.getElementById("home").classList.toggle("on",!a);document.getElementById("article").classList.toggle("on",!a?false:true);if(a||!tg)scrollTo(0,0);if(!a&&tg){const el=document.getElementById(tg);tg=null;el&&setTimeout(()=>el.scrollIntoView({behavior:"smooth"}),30)}}
+document.addEventListener("click",e=>{const a=e.target.closest("[data-s]");if(a){tg=a.dataset.s;if(location.hash==="#/"||!location.hash){e.preventDefault();route()}}});
+addEventListener("hashchange",route);route();
+</script></body></html>
